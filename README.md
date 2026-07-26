@@ -1,150 +1,114 @@
-# Processo Seletivo – Intensivo Maker | IoT
+# Relatório do Candidato
 
-## Etapa Prática – Sistemas Embarcados
-
----
-
-### Identificação do Candidato
-
+## Identificação do Candidato
 - **Nome completo:** Ricardo Porfírio Vieira
 - **GitHub:** Ricardoporfiriovieira
 - **E-mail:** ricardoporfiriovieira@gmail.com
 
----
-
 ## Visão Geral da Solução
-
-Este projeto implementa um **Contador de Produção Não-Intrusivo** para monitoramento de esteiras transportadoras industriais, utilizando um ESP32 simulado no Wokwi com MicroPython.
-
-**O que o sistema faz:**
-- Detecta a passagem de peças/caixas em uma esteira por meio de um sensor óptico (LDR), que identifica a interrupção e o retorno do feixe de luz.
-- Mantém um contador acumulativo de peças produzidas.
-- Monitora micro-paradas na esteira: quando o sensor permanece bloqueado por mais de 5 segundos, emite um alerta de gargalo.
-- Permite ao operador resetar manualmente o turno via botão físico, zerando todos os contadores.
-
-**Interação do usuário:**
-- O operador acompanha a produção pelo terminal serial (UART).
-- Pode pressionar o botão de reset a qualquer momento para encerrar o turno atual.
-
----
+- **Objetivo do projeto:** Implementa um Contador de Produção Não-Intrusivo para monitoramento de esteiras transportadoras industriais, detectando a passagem de peças/caixas por meio de um sensor óptico (LDR) e mantendo um contador acumulativo.
+- **Funções do sistema embarcado:** Monitora micro-paradas na esteira, emitindo um alerta de gargalo quando o sensor permanece bloqueado por mais de 5 segundos, além de contabilizar o número de peças produzidas.
+- **Interação com usuário:** O operador acompanha a produção pelo terminal serial (UART) e pode pressionar o botão de reset físico a qualquer momento para encerrar o turno atual e zerar os contadores.
 
 ## Arquitetura do Sistema Embarcado
+De forma geral, o programa pode ser "dividido" em quatro funções:
 
-### Fluxo Principal (`main.py`)
-
-```
-Inicialização
-      |
-      v
-  Imprime "Contador de Producao Inicializado"
-      |
-      v
-  +----------------------------------+
-  |         LOOP PRINCIPAL           |
-  |    (não-bloqueante, 50ms)        |
-  |                                  |
-  |  1. Ler valor ADC do LDR        |
-  |  2. Verificar detecção de peça   |
-  |  3. Verificar micro-parada      |
-  |  4. Verificar botão de reset     |
-  |  5. Sleep 50ms                   |
-  +----------------------------------+
+- **ler_luminosidade():** Lê o valor bruto do ADC conectado ao LDR.
+```python
+def ler_luminosidade():
+    """Le o valor bruto do ADC conectado ao LDR."""
+    return adc_ldr.read()
 ```
 
-### Máquina de Estados do Sensor LDR
+- **verificar_deteccao_peca(valor_adc):** Implementa a lógica de detecção de peças por transição de luz. A contagem de peças é incrementada exclusivamente na borda de subida (transição de BLOQUEADO para LIVRE), garantindo que a peça passou completamente pelo sensor.
+```python
+def verificar_deteccao_peca(valor_adc):
+    global sensor_bloqueado, contador_pecas
+    global tempo_inicio_bloqueio, micro_parada_alertada
 
-O sistema opera com dois estados para o sensor óptico:
+    agora = time.ticks_ms()
 
-| Estado         | Condição                        | Descrição                      |
-| :------------- | :------------------------------ | :----------------------------- |
-| **LIVRE**      | ADC < 1000 (lux alto, ~800)     | Esteira livre, sem obstrução   |
-| **BLOQUEADO**  | ADC > 2000 (lux baixo, ~50)     | Peça presente sobre o sensor   |
+    if not sensor_bloqueado:
+        # Estado atual: LIVRE
+        if valor_adc > LIMIAR_BLOQUEIO:
+            sensor_bloqueado = True
+            tempo_inicio_bloqueio = agora
+            micro_parada_alertada = False
+    else:
+        # Estado atual: BLOQUEADO
+        if valor_adc < LIMIAR_LIVRE:
+            sensor_bloqueado = False
+            contador_pecas += 1
+            print("Peca detectada! Total: {}".format(contador_pecas))
+```
 
-A contagem de peças é incrementada exclusivamente na **borda de subida** (transição BLOQUEADO para LIVRE), garantindo que a peça passou completamente pelo sensor antes de registrar o evento.
+- **verificar_micro_parada():** Verifica se o sensor permanece bloqueado por um tempo maior ou igual ao limite de micro-parada e emite o alerta caso positivo. Utiliza a diferença entre o tempo atual e o início do bloqueio guardado.
+```python
+def verificar_micro_parada():
+    global micro_parada_alertada
 
-### Estratégia de Temporização
+    if sensor_bloqueado and not micro_parada_alertada:
+        agora = time.ticks_ms()
+        tempo_bloqueado = time.ticks_diff(agora, tempo_inicio_bloqueio)
 
-Todas as temporizações utilizam `time.ticks_ms()` e `time.ticks_diff()` para garantir uma **arquitetura totalmente não-bloqueante**, conforme requisito do CI:
+        if tempo_bloqueado >= TEMPO_MICRO_PARADA_MS:
+            print("Alerta: Micro-parada detectada!")
+            micro_parada_alertada = True
+```
 
-- **Micro-parada:** Temporizador iniciado quando o sensor entra em estado BLOQUEADO. Se `ticks_diff >= 5000ms`, emite o alerta.
-- **Debounce do botão:** Filtragem por software com janela de 50ms para evitar falsos gatilhos mecânicos.
+- **verificar_botao_reset():** Verifica o estado do botão de reset com tratamento de debounce não-bloqueante utilizando `time.ticks_ms()`. Reseta o contador e todos os estados quando uma borda de subida válida (botão solto após pressionado) é detectada.
+```python
+def verificar_botao_reset():
+    global ultimo_estado_botao, tempo_ultimo_debounce
+    global botao_estavel, botao_anterior_estavel
+    global contador_pecas, sensor_bloqueado
+    global tempo_inicio_bloqueio, micro_parada_alertada
 
----
+    leitura_atual = botao_reset.value()
+    agora = time.ticks_ms()
+
+    if leitura_atual != ultimo_estado_botao:
+        tempo_ultimo_debounce = agora
+    ultimo_estado_botao = leitura_atual
+
+    if time.ticks_diff(agora, tempo_ultimo_debounce) >= TEMPO_DEBOUNCE_MS:
+        if leitura_atual != botao_estavel:
+            botao_anterior_estavel = botao_estavel
+            botao_estavel = leitura_atual
+
+            if botao_anterior_estavel == 0 and botao_estavel == 1:
+                contador_pecas = 0
+                sensor_bloqueado = False
+                tempo_inicio_bloqueio = 0
+                micro_parada_alertada = False
+                print("Turno resetado com sucesso. Contadores zerados.")
+```
+
+Todas essas funções são executadas dentro do loop principal, no qual também está presente `time.sleep_ms(INTERVALO_LOOP_MS)`, paralisando o programa por 50 milissegundos.
+
+```python
+while True:
+    valor_ldr = ler_luminosidade()
+    verificar_deteccao_peca(valor_ldr)
+    verificar_micro_parada()
+    verificar_botao_reset()
+    time.sleep_ms(INTERVALO_LOOP_MS)
+```
 
 ## Componentes Utilizados na Simulação
+Liste os principais componentes definidos no diagram.json, por exemplo:
 
-| Componente                    | ID no Wokwi | Pino ESP32 | Função                                         |
-| :---------------------------- | :---------- | :--------- | :--------------------------------------------- |
-| ESP32 DevKit C v4             | `esp`       | —          | Microcontrolador principal                     |
-| Fotorresistor (LDR)           | `ldr1`      | GPIO 34    | Sensor óptico de detecção de peças             |
-| Botão Push-button             | `btn1`      | GPIO 23    | Reset manual de turno (pull-up interno)        |
-| Monitor Serial                | —           | TX/RX      | Saída de logs e telemetria via UART            |
-
-### Conexões Elétricas
-
-- **LDR para ESP32:** VCC para 3V3, GND para GND, saída analógica (AO) para GPIO 34.
-- **Botão para ESP32:** Terminal 1 para GND, Terminal 2 para GPIO 23 (com pull-up interno habilitado no firmware).
-
----
+- **ESP32 DevKit C v4:** Controla toda a lógica do funcionamento do sistema.
+- **Fotorresistor (LDR):** Sensor óptico utilizado para detectar a passagem de peças na esteira, com o pino conectado ao GPIO 34 (ADC).
+- **Push Button:** Botão utilizado para realizar o reset manual de turno, reiniciando os contadores, conectado ao GPIO 23 (com pull-up interno).
 
 ## Decisões Técnicas Relevantes
-
-### Organização do Código
-
-O firmware foi estruturado com separação clara de responsabilidades:
-
-- **Constantes de configuração** agrupadas no topo do arquivo para fácil parametrização (`LIMIAR_BLOQUEIO`, `LIMIAR_LIVRE`, `TEMPO_MICRO_PARADA_MS`, etc.).
-- **Funções dedicadas** para cada subsistema:
-  - `ler_luminosidade()` — abstrai a leitura do ADC.
-  - `verificar_deteccao_peca()` — lógica de transições de luz.
-  - `verificar_micro_parada()` — temporizador de gargalo.
-  - `verificar_botao_reset()` — debounce e reset de turno.
-
-### Debounce por Software
-
-Implementei debounce por amostragem temporal: a cada iteração do loop, o estado bruto do botão é lido. Se houver mudança, o timer de debounce é reiniciado. O estado só é aceito como estável após 50ms sem variação, prevenindo múltiplos disparos por bounce mecânico.
-
-### Detecção por Borda de Subida
-
-A contagem de peças é feita na **borda de subida** (retorno da luz) e não na borda de descida (bloqueio). Isso garante que a peça passou completamente pelo sensor antes de ser contabilizada, evitando contagens duplicadas ou prematuras.
-
-### Histerese nos Limiares
-
-Utilizei dois limiares distintos (`LIMIAR_BLOQUEIO = 2000` e `LIMIAR_LIVRE = 1000`) ao invés de um único valor, criando uma faixa de histerese que evita oscilações falsas quando a leitura do sensor está próxima do limiar de transição.
-
----
+O firmware foi estruturado de forma inteiramente não-bloqueante para garantir o monitoramento ininterrupto. Todas as temporizações utilizam `time.ticks_ms()` e `time.ticks_diff()`.
+Para evitar múltiplos disparos falsos pelo botão mecânico, implementei um debounce por software via amostragem temporal: a cada iteração do loop, o estado do botão é lido. Se houver mudança, o timer de debounce é reiniciado.
+Para detecção por meio do LDR, utilizei dois limiares distintos (`LIMIAR_BLOQUEIO = 2000` e `LIMIAR_LIVRE = 1000`) em vez de um único valor. Isso cria uma faixa de histerese, evitando oscilações falsas quando a leitura do sensor está próxima do limiar de transição. Além disso, a contagem de peças é feita apenas na borda de subida (retorno da luz, estado LIVRE), garantindo que a peça passou completamente.
 
 ## Resultados Obtidos
+O sistema funciona conforme o esperado, detectando e contabilizando com sucesso cada peça após ela passar completamente pelo sensor. Também foi validada com sucesso a emissão do alerta de micro-parada quando a esteira fica com o feixe bloqueado por mais de 5 segundos. O reset através do botão obedece perfeitamente ao debounce configurado e foi observado que o loop não-bloqueante consegue atender adequadamente as exigências, permitindo inclusive o casamento de strings com a avaliação do CI perfeitamente, sem atrasos desnecessários.
 
-### Requisitos Atendidos
-
-| Requisito                              | Status |
-| :------------------------------------- | :----: |
-| Mensagem de inicialização exata        |   OK   |
-| Detecção e contagem de peças (borda)   |   OK   |
-| Mensagem "Peca detectada! Total: X"    |   OK   |
-| Detecção de micro-parada (> 5s)        |   OK   |
-| Mensagem "Alerta: Micro-parada..."     |   OK   |
-| Reset de turno via botão com debounce  |   OK   |
-| Mensagem "Turno resetado..."           |   OK   |
-| Arquitetura não-bloqueante             |   OK   |
-| Casamento exato de strings para CI     |   OK   |
-
-### Mensagens Seriais (casamento exato com o CI)
-
-```
-Contador de Producao Inicializado
-Peca detectada! Total: 1
-Alerta: Micro-parada detectada!
-Turno resetado com sucesso. Contadores zerados.
-```
-
----
-
-## Comentários Adicionais
-
-### Principais Decisões
-
-- O intervalo do loop principal foi definido em 50ms para equilibrar responsividade do sensor com consumo de processamento.
-- A utilização de `time.ticks_ms()` em vez de `time.sleep()` garante que nenhuma funcionalidade é bloqueada enquanto aguarda temporizadores.
-- O uso de pull-up interno no botão simplifica o circuito, dispensando resistores externos.
+## Comentários Adicionais (Opcional)
+Uma escolha chave foi o uso do pull-up interno no pino do botão, o que simplifica o circuito montado no Wokwi pois dispensa resistores externos e facilita o diagrama.
