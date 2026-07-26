@@ -10,71 +10,46 @@ Componentes:
   - ldr1: Fotorresistor (LDR) no pino ADC GPIO 34
   - btn1: Botao de reset de turno no GPIO 23 (pull-up interno)
 
-Autor: Ricardo PorfÃƒÆ’Ã‚Â­rio
+Autor: Ricardo Porfirio
 """
 
 from machine import Pin, ADC
 import time
 
-# =============================================================================
-# CONSTANTES DE CONFIGURACAO
-# =============================================================================
 
-# Pinos de hardware
-PINO_LDR = 34          # Pino ADC para o sensor LDR
-PINO_BOTAO = 23        # Pino digital para o botao de reset
 
-# Limiares de luminosidade (em valor ADC bruto 0-4095)
-# No Wokwi, o LDR retorna valores ADC proporcionais ao lux:
-#   - lux alto (800) -> ADC alto (ambiente iluminado / esteira livre)
-#   - lux baixo (50)  -> ADC baixo (peca bloqueando o sensor)
-LIMIAR_BLOQUEIO = 2000    # Acima deste valor = peca presente (lux baixo)
-LIMIAR_LIVRE = 1000       # Abaixo deste valor = esteira livre (lux alto)
+PINO_LDR = 34         
+PINO_BOTAO = 23        
 
-# Temporizacao
-TEMPO_MICRO_PARADA_MS = 5000   # Tempo para detectar micro-parada (5 segundos)
-TEMPO_DEBOUNCE_MS = 50         # Tempo de debounce do botao (50ms)
+LIMIAR_BLOQUEIO = 2000   
+LIMIAR_LIVRE = 1000     
 
-# Intervalo do loop principal
-INTERVALO_LOOP_MS = 50         # Polling a cada 50ms (nao-bloqueante)
+TEMPO_MICRO_PARADA_MS = 5000   
+TEMPO_DEBOUNCE_MS = 50        
 
-# =============================================================================
-# CONFIGURACAO DE HARDWARE
-# =============================================================================
+INTERVALO_LOOP_MS = 50       
 
-# Configura o ADC para leitura do LDR
+
 adc_ldr = ADC(Pin(PINO_LDR))
-adc_ldr.atten(ADC.ATTN_11DB)    # Faixa de leitura 0-3.3V
-adc_ldr.width(ADC.WIDTH_12BIT)  # Resolucao de 12 bits (0-4095)
+adc_ldr.atten(ADC.ATTN_11DB)    
+adc_ldr.width(ADC.WIDTH_12BIT) 
 
-# Configura o botao com pull-up interno
 botao_reset = Pin(PINO_BOTAO, Pin.IN, Pin.PULL_UP)
 
-# =============================================================================
-# VARIAVEIS DE ESTADO DO SISTEMA
-# =============================================================================
-
-# Contagem de pecas
 contador_pecas = 0
 
-# Estado do sensor de luz
-#   False = esteira livre (lux alto)
-#   True  = peca presente (lux baixo / bloqueado)
+
 sensor_bloqueado = False
 
 # Controle de micro-parada
-tempo_inicio_bloqueio = 0    # Timestamp do inicio do bloqueio
-micro_parada_alertada = False  # Evita alertas repetidos para o mesmo evento
+tempo_inicio_bloqueio = 0   
+micro_parada_alertada = False 
 
 # Controle de debounce do botao
-ultimo_estado_botao = 1        # Pull-up: 1 = solto, 0 = pressionado
+ultimo_estado_botao = 1        
 tempo_ultimo_debounce = 0
-botao_estavel = 1              # Estado estavel apos debounce
-botao_anterior_estavel = 1     # Estado estavel do ciclo anterior
-
-# =============================================================================
-# FUNCOES DO SISTEMA
-# =============================================================================
+botao_estavel = 1             
+botao_anterior_estavel = 1    
 
 
 def ler_luminosidade():
@@ -85,12 +60,6 @@ def ler_luminosidade():
 def verificar_deteccao_peca(valor_adc):
     """
     Implementa a logica de deteccao de pecas por transicao de luz.
-
-    A contagem so e incrementada na BORDA DE SUBIDA: quando a luz retorna
-    ao estado normal apos ter sido bloqueada, garantindo que a peca passou
-    completamente pelo sensor.
-
-    Tambem monitora o tempo de bloqueio continuo para detectar micro-paradas.
     """
     global sensor_bloqueado, contador_pecas
     global tempo_inicio_bloqueio, micro_parada_alertada
@@ -98,7 +67,7 @@ def verificar_deteccao_peca(valor_adc):
     agora = time.ticks_ms()
 
     if not sensor_bloqueado:
-        # Estado atual: LIVRE -> Verifica se houve transicao para BLOQUEADO
+        # Estado atual: LIVRE
         if valor_adc > LIMIAR_BLOQUEIO:
             sensor_bloqueado = True
             tempo_inicio_bloqueio = agora
@@ -106,8 +75,6 @@ def verificar_deteccao_peca(valor_adc):
     else:
         # Estado atual: BLOQUEADO
         if valor_adc < LIMIAR_LIVRE:
-            # Transicao de BLOQUEADO -> LIVRE (borda de subida)
-            # A peca passou completamente pelo sensor
             sensor_bloqueado = False
             contador_pecas += 1
             print("Peca detectada! Total: {}".format(contador_pecas))
@@ -115,10 +82,7 @@ def verificar_deteccao_peca(valor_adc):
 
 def verificar_micro_parada():
     """
-    Verifica se o sensor permanece bloqueado por tempo excessivo,
-    indicando uma micro-parada na esteira (gargalo ou travamento).
-
-    Usa temporizador nao-bloqueante com time.ticks_diff().
+    Verifica se o sensor permanece bloqueado
     """
     global micro_parada_alertada
 
@@ -134,10 +98,6 @@ def verificar_micro_parada():
 def verificar_botao_reset():
     """
     Verifica o estado do botao de reset com tratamento de debounce.
-
-    Detecta a borda de descida (transicao de solto para pressionado)
-    para acionar o reset de turno. Usa debounce por software para
-    evitar falsos gatilhos causados por bounce mecanico.
     """
     global ultimo_estado_botao, tempo_ultimo_debounce
     global botao_estavel, botao_anterior_estavel
@@ -147,21 +107,16 @@ def verificar_botao_reset():
     leitura_atual = botao_reset.value()
     agora = time.ticks_ms()
 
-    # Detecta mudanca na leitura bruta e reinicia o timer de debounce
     if leitura_atual != ultimo_estado_botao:
         tempo_ultimo_debounce = agora
     ultimo_estado_botao = leitura_atual
 
-    # Verifica se o tempo de debounce passou
     if time.ticks_diff(agora, tempo_ultimo_debounce) >= TEMPO_DEBOUNCE_MS:
-        # Atualiza o estado estavel
         if leitura_atual != botao_estavel:
             botao_anterior_estavel = botao_estavel
             botao_estavel = leitura_atual
 
-            # Detecta borda de subida: pressionado (0) -> solto (1) (liberacao do botao)
             if botao_anterior_estavel == 0 and botao_estavel == 1:
-                # Reset de turno
                 contador_pecas = 0
                 sensor_bloqueado = False
                 tempo_inicio_bloqueio = 0
@@ -169,25 +124,15 @@ def verificar_botao_reset():
                 print("Turno resetado com sucesso. Contadores zerados.")
 
 
-# =============================================================================
-# LOOP PRINCIPAL (ARQUITETURA NAO-BLOQUEANTE)
-# =============================================================================
-
-# Mensagem de inicializacao (obrigatoria para o CI)
 print("Contador de Producao Inicializado")
 
 while True:
-    # Leitura do sensor de luminosidade
     valor_ldr = ler_luminosidade()
 
-    # Logica de deteccao de pecas (transicoes de luz)
     verificar_deteccao_peca(valor_ldr)
 
-    # Logica de deteccao de micro-paradas (temporizador nao-bloqueante)
     verificar_micro_parada()
 
-    # Logica de reset de turno (botao com debounce)
     verificar_botao_reset()
 
-    # Pausa nao-bloqueante para evitar saturacao do loop
     time.sleep_ms(INTERVALO_LOOP_MS)
