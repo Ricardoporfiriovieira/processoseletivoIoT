@@ -1,4 +1,4 @@
-﻿"""
+"""
 Contador de Producao Nao-Intrusivo
 ===================================
 Firmware MicroPython para ESP32 simulado no Wokwi.
