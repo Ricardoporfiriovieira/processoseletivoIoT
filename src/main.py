@@ -10,7 +10,7 @@ Componentes:
   - ldr1: Fotorresistor (LDR) no pino ADC GPIO 34
   - btn1: Botao de reset de turno no GPIO 23 (pull-up interno)
 
-Autor: Ricardo PorfÃƒÂ­rio
+Autor: Ricardo PorfÃƒÆ’Ã‚Â­rio
 """
 
 from machine import Pin, ADC
@@ -159,8 +159,8 @@ def verificar_botao_reset():
             botao_anterior_estavel = botao_estavel
             botao_estavel = leitura_atual
 
-            # Detecta borda de descida: solto (1) -> pressionado (0)
-            if botao_anterior_estavel == 1 and botao_estavel == 0:
+            # Detecta borda de subida: pressionado (0) -> solto (1) (liberacao do botao)
+            if botao_anterior_estavel == 0 and botao_estavel == 1:
                 # Reset de turno
                 contador_pecas = 0
                 sensor_bloqueado = False
