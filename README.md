@@ -1,30 +1,30 @@
-# Processo Seletivo Ã¢â‚¬â€œ Intensivo Maker | IoT
+# Processo Seletivo – Intensivo Maker | IoT
 
-## Etapa PrÃƒÂ¡tica Ã¢â‚¬â€œ Sistemas Embarcados
+## Etapa Prática – Sistemas Embarcados
 
 ---
 
-### IdentificaÃƒÂ§ÃƒÂ£o do Candidato
+### Identificação do Candidato
 
-- **Nome completo:** Ricardo PorfÃƒÂ­rio
-- **GitHub:** Ricardo PorfÃƒÂ­rio
+- **Nome completo:** Ricardo Porfírio
+- **GitHub:** Ricardo Porfírio
 - **E-mail:** ricardoporfiriovieira@gmail.com
 
 ---
 
-## VisÃƒÂ£o Geral da SoluÃƒÂ§ÃƒÂ£o
+## Visão Geral da Solução
 
-Este projeto implementa um **Contador de ProduÃƒÂ§ÃƒÂ£o NÃƒÂ£o-Intrusivo** para monitoramento de esteiras transportadoras industriais, utilizando um ESP32 simulado no Wokwi com MicroPython.
+Este projeto implementa um **Contador de Produção Não-Intrusivo** para monitoramento de esteiras transportadoras industriais, utilizando um ESP32 simulado no Wokwi com MicroPython.
 
 **O que o sistema faz:**
-- Detecta a passagem de peÃƒÂ§as/caixas em uma esteira por meio de um sensor ÃƒÂ³ptico (LDR), que identifica a interrupÃƒÂ§ÃƒÂ£o e o retorno do feixe de luz.
-- MantÃƒÂ©m um contador acumulativo de peÃƒÂ§as produzidas.
+- Detecta a passagem de peças/caixas em uma esteira por meio de um sensor óptico (LDR), que identifica a interrupção e o retorno do feixe de luz.
+- Mantém um contador acumulativo de peças produzidas.
 - Monitora micro-paradas na esteira: quando o sensor permanece bloqueado por mais de 5 segundos, emite um alerta de gargalo.
-- Permite ao operador resetar manualmente o turno via botÃƒÂ£o fÃƒÂ­sico, zerando todos os contadores.
+- Permite ao operador resetar manualmente o turno via botão físico, zerando todos os contadores.
 
-**InteraÃƒÂ§ÃƒÂ£o do usuÃƒÂ¡rio:**
-- O operador acompanha a produÃƒÂ§ÃƒÂ£o pelo terminal serial (UART).
-- Pode pressionar o botÃƒÂ£o de reset a qualquer momento para encerrar o turno atual.
+**Interação do usuário:**
+- O operador acompanha a produção pelo terminal serial (UART).
+- Pode pressionar o botão de reset a qualquer momento para encerrar o turno atual.
 
 ---
 
@@ -33,7 +33,7 @@ Este projeto implementa um **Contador de ProduÃƒÂ§ÃƒÂ£o NÃƒÂ£o-Intru
 ### Fluxo Principal (`main.py`)
 
 ```
-InicializaÃƒÂ§ÃƒÂ£o
+Inicialização
       |
       v
   Imprime "Contador de Producao Inicializado"
@@ -41,76 +41,76 @@ InicializaÃƒÂ§ÃƒÂ£o
       v
   +----------------------------------+
   |         LOOP PRINCIPAL           |
-  |    (nÃƒÂ£o-bloqueante, 50ms)        |
+  |    (não-bloqueante, 50ms)        |
   |                                  |
   |  1. Ler valor ADC do LDR        |
-  |  2. Verificar detecÃƒÂ§ÃƒÂ£o de peÃƒÂ§a   |
+  |  2. Verificar detecção de peça   |
   |  3. Verificar micro-parada      |
-  |  4. Verificar botÃƒÂ£o de reset     |
+  |  4. Verificar botão de reset     |
   |  5. Sleep 50ms                   |
   +----------------------------------+
 ```
 
-### MÃƒÂ¡quina de Estados do Sensor LDR
+### Máquina de Estados do Sensor LDR
 
-O sistema opera com dois estados para o sensor ÃƒÂ³ptico:
+O sistema opera com dois estados para o sensor óptico:
 
-| Estado         | CondiÃƒÂ§ÃƒÂ£o                        | DescriÃƒÂ§ÃƒÂ£o                      |
+| Estado         | Condição                        | Descrição                      |
 | :------------- | :------------------------------ | :----------------------------- |
-| **LIVRE**      | ADC < 1000 (lux alto, ~800)     | Esteira livre, sem obstruÃƒÂ§ÃƒÂ£o   |
-| **BLOQUEADO**  | ADC > 2000 (lux baixo, ~50)     | PeÃƒÂ§a presente sobre o sensor   |
+| **LIVRE**      | ADC < 1000 (lux alto, ~800)     | Esteira livre, sem obstrução   |
+| **BLOQUEADO**  | ADC > 2000 (lux baixo, ~50)     | Peça presente sobre o sensor   |
 
-A contagem de peÃƒÂ§as ÃƒÂ© incrementada exclusivamente na **borda de subida** (transiÃƒÂ§ÃƒÂ£o BLOQUEADO para LIVRE), garantindo que a peÃƒÂ§a passou completamente pelo sensor antes de registrar o evento.
+A contagem de peças é incrementada exclusivamente na **borda de subida** (transição BLOQUEADO para LIVRE), garantindo que a peça passou completamente pelo sensor antes de registrar o evento.
 
-### EstratÃƒÂ©gia de TemporizaÃƒÂ§ÃƒÂ£o
+### Estratégia de Temporização
 
-Todas as temporizaÃƒÂ§ÃƒÂµes utilizam `time.ticks_ms()` e `time.ticks_diff()` para garantir uma **arquitetura totalmente nÃƒÂ£o-bloqueante**, conforme requisito do CI:
+Todas as temporizações utilizam `time.ticks_ms()` e `time.ticks_diff()` para garantir uma **arquitetura totalmente não-bloqueante**, conforme requisito do CI:
 
 - **Micro-parada:** Temporizador iniciado quando o sensor entra em estado BLOQUEADO. Se `ticks_diff >= 5000ms`, emite o alerta.
-- **Debounce do botÃƒÂ£o:** Filtragem por software com janela de 50ms para evitar falsos gatilhos mecÃƒÂ¢nicos.
+- **Debounce do botão:** Filtragem por software com janela de 50ms para evitar falsos gatilhos mecânicos.
 
 ---
 
-## Componentes Utilizados na SimulaÃƒÂ§ÃƒÂ£o
+## Componentes Utilizados na Simulação
 
-| Componente                    | ID no Wokwi | Pino ESP32 | FunÃƒÂ§ÃƒÂ£o                                         |
+| Componente                    | ID no Wokwi | Pino ESP32 | Função                                         |
 | :---------------------------- | :---------- | :--------- | :--------------------------------------------- |
-| ESP32 DevKit C v4             | `esp`     | Ã¢â‚¬â€          | Microcontrolador principal                     |
-| Fotorresistor (LDR)           | `ldr1`    | GPIO 34    | Sensor ÃƒÂ³ptico de detecÃƒÂ§ÃƒÂ£o de peÃƒÂ§as             |
-| BotÃƒÂ£o Push-button             | `btn1`    | GPIO 23    | Reset manual de turno (pull-up interno)        |
-| Monitor Serial                | Ã¢â‚¬â€           | TX/RX      | SaÃƒÂ­da de logs e telemetria via UART            |
+| ESP32 DevKit C v4             | `esp`       | —          | Microcontrolador principal                     |
+| Fotorresistor (LDR)           | `ldr1`      | GPIO 34    | Sensor óptico de detecção de peças             |
+| Botão Push-button             | `btn1`      | GPIO 23    | Reset manual de turno (pull-up interno)        |
+| Monitor Serial                | —           | TX/RX      | Saída de logs e telemetria via UART            |
 
-### ConexÃƒÂµes ElÃƒÂ©tricas
+### Conexões Elétricas
 
-- **LDR para ESP32:** VCC para 3V3, GND para GND, saÃƒÂ­da analÃƒÂ³gica (AO) para GPIO 34.
-- **BotÃƒÂ£o para ESP32:** Terminal 1 para GND, Terminal 2 para GPIO 23 (com pull-up interno habilitado no firmware).
+- **LDR para ESP32:** VCC para 3V3, GND para GND, saída analógica (AO) para GPIO 34.
+- **Botão para ESP32:** Terminal 1 para GND, Terminal 2 para GPIO 23 (com pull-up interno habilitado no firmware).
 
 ---
 
-## DecisÃƒÂµes TÃƒÂ©cnicas Relevantes
+## Decisões Técnicas Relevantes
 
-### OrganizaÃƒÂ§ÃƒÂ£o do CÃƒÂ³digo
+### Organização do Código
 
-O firmware foi estruturado com separaÃƒÂ§ÃƒÂ£o clara de responsabilidades:
+O firmware foi estruturado com separação clara de responsabilidades:
 
-- **Constantes de configuraÃƒÂ§ÃƒÂ£o** agrupadas no topo do arquivo para fÃƒÂ¡cil parametrizaÃƒÂ§ÃƒÂ£o (`LIMIAR_BLOQUEIO`, `LIMIAR_LIVRE`, `TEMPO_MICRO_PARADA_MS`, etc.).
-- **FunÃƒÂ§ÃƒÂµes dedicadas** para cada subsistema:
-  - `ler_luminosidade()` Ã¢â‚¬â€ abstrai a leitura do ADC.
-  - `verificar_deteccao_peca()` Ã¢â‚¬â€ lÃƒÂ³gica de transiÃƒÂ§ÃƒÂµes de luz.
-  - `verificar_micro_parada()` Ã¢â‚¬â€ temporizador de gargalo.
-  - `verificar_botao_reset()` Ã¢â‚¬â€ debounce e reset de turno.
+- **Constantes de configuração** agrupadas no topo do arquivo para fácil parametrização (`LIMIAR_BLOQUEIO`, `LIMIAR_LIVRE`, `TEMPO_MICRO_PARADA_MS`, etc.).
+- **Funções dedicadas** para cada subsistema:
+  - `ler_luminosidade()` — abstrai a leitura do ADC.
+  - `verificar_deteccao_peca()` — lógica de transições de luz.
+  - `verificar_micro_parada()` — temporizador de gargalo.
+  - `verificar_botao_reset()` — debounce e reset de turno.
 
 ### Debounce por Software
 
-Implementei debounce por amostragem temporal: a cada iteraÃƒÂ§ÃƒÂ£o do loop, o estado bruto do botÃƒÂ£o ÃƒÂ© lido. Se houver mudanÃƒÂ§a, o timer de debounce ÃƒÂ© reiniciado. O estado sÃƒÂ³ ÃƒÂ© aceito como estÃƒÂ¡vel apÃƒÂ³s 50ms sem variaÃƒÂ§ÃƒÂ£o, prevenindo mÃƒÂºltiplos disparos por bounce mecÃƒÂ¢nico.
+Implementei debounce por amostragem temporal: a cada iteração do loop, o estado bruto do botão é lido. Se houver mudança, o timer de debounce é reiniciado. O estado só é aceito como estável após 50ms sem variação, prevenindo múltiplos disparos por bounce mecânico.
 
-### DetecÃƒÂ§ÃƒÂ£o por Borda de Subida
+### Detecção por Borda de Subida
 
-A contagem de peÃƒÂ§as ÃƒÂ© feita na **borda de subida** (retorno da luz) e nÃƒÂ£o na borda de descida (bloqueio). Isso garante que a peÃƒÂ§a passou completamente pelo sensor antes de ser contabilizada, evitando contagens duplicadas ou prematuras.
+A contagem de peças é feita na **borda de subida** (retorno da luz) e não na borda de descida (bloqueio). Isso garante que a peça passou completamente pelo sensor antes de ser contabilizada, evitando contagens duplicadas ou prematuras.
 
 ### Histerese nos Limiares
 
-Utilizei dois limiares distintos (`LIMIAR_BLOQUEIO = 1000` e `LIMIAR_LIVRE = 2000`) ao invÃƒÂ©s de um ÃƒÂºnico valor, criando uma faixa de histerese que evita oscilaÃƒÂ§ÃƒÂµes falsas quando a leitura do sensor estÃƒÂ¡ prÃƒÂ³xima do limiar de transiÃƒÂ§ÃƒÂ£o.
+Utilizei dois limiares distintos (`LIMIAR_BLOQUEIO = 2000` e `LIMIAR_LIVRE = 1000`) ao invés de um único valor, criando uma faixa de histerese que evita oscilações falsas quando a leitura do sensor está próxima do limiar de transição.
 
 ---
 
@@ -120,14 +120,14 @@ Utilizei dois limiares distintos (`LIMIAR_BLOQUEIO = 1000` e `LIMIAR_LIVRE = 200
 
 | Requisito                              | Status |
 | :------------------------------------- | :----: |
-| Mensagem de inicializaÃƒÂ§ÃƒÂ£o exata        |   OK   |
-| DetecÃƒÂ§ÃƒÂ£o e contagem de peÃƒÂ§as (borda)   |   OK   |
+| Mensagem de inicialização exata        |   OK   |
+| Detecção e contagem de peças (borda)   |   OK   |
 | Mensagem "Peca detectada! Total: X"    |   OK   |
-| DetecÃƒÂ§ÃƒÂ£o de micro-parada (> 5s)        |   OK   |
+| Detecção de micro-parada (> 5s)        |   OK   |
 | Mensagem "Alerta: Micro-parada..."     |   OK   |
-| Reset de turno via botÃƒÂ£o com debounce  |   OK   |
+| Reset de turno via botão com debounce  |   OK   |
 | Mensagem "Turno resetado..."           |   OK   |
-| Arquitetura nÃƒÂ£o-bloqueante             |   OK   |
+| Arquitetura não-bloqueante             |   OK   |
 | Casamento exato de strings para CI     |   OK   |
 
 ### Mensagens Seriais (casamento exato com o CI)
@@ -141,17 +141,17 @@ Turno resetado com sucesso. Contadores zerados.
 
 ---
 
-## ComentÃƒÂ¡rios Adicionais
+## Comentários Adicionais
 
-### Principais DecisÃƒÂµes
+### Principais Decisões
 
 - O intervalo do loop principal foi definido em 50ms para equilibrar responsividade do sensor com consumo de processamento.
-- A utilizaÃƒÂ§ÃƒÂ£o de `time.ticks_ms()` em vez de `time.sleep()` garante que nenhuma funcionalidade ÃƒÂ© bloqueada enquanto aguarda temporizadores.
-- O uso de pull-up interno no botÃƒÂ£o simplifica o circuito, dispensando resistores externos.
+- A utilização de `time.ticks_ms()` em vez de `time.sleep()` garante que nenhuma funcionalidade é bloqueada enquanto aguarda temporizadores.
+- O uso de pull-up interno no botão simplifica o circuito, dispensando resistores externos.
 
 ### Melhorias Futuras
 
-- ImplementaÃƒÂ§ÃƒÂ£o de display OLED para visualizaÃƒÂ§ÃƒÂ£o local da contagem sem depender do terminal serial.
-- AdiÃƒÂ§ÃƒÂ£o de LED indicador de status (verde para operaÃƒÂ§ÃƒÂ£o normal, vermelho para micro-parada).
-- Armazenamento de dados de turno em NVS (Non-Volatile Storage) para persistÃƒÂªncia apÃƒÂ³s resets.
-- CÃƒÂ¡lculo e exibiÃƒÂ§ÃƒÂ£o de mÃƒÂ©tricas de produtividade (peÃƒÂ§as/minuto, tempo mÃƒÂ©dio de ciclo).
+- Implementação de display OLED para visualização local da contagem sem depender do terminal serial.
+- Adição de LED indicador de status (verde para operação normal, vermelho para micro-parada).
+- Armazenamento de dados de turno em NVS (Non-Volatile Storage) para persistência após resets.
+- Cálculo e exibição de métricas de produtividade (peças/minuto, tempo médio de ciclo).
