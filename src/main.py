@@ -10,7 +10,7 @@ Componentes:
   - ldr1: Fotorresistor (LDR) no pino ADC GPIO 34
   - btn1: Botao de reset de turno no GPIO 23 (pull-up interno)
 
-Autor: Ricardo PorfÃ­rio
+Autor: Ricardo PorfÃƒÂ­rio
 """
 
 from machine import Pin, ADC
@@ -28,8 +28,8 @@ PINO_BOTAO = 23        # Pino digital para o botao de reset
 # No Wokwi, o LDR retorna valores ADC proporcionais ao lux:
 #   - lux alto (800) -> ADC alto (ambiente iluminado / esteira livre)
 #   - lux baixo (50)  -> ADC baixo (peca bloqueando o sensor)
-LIMIAR_BLOQUEIO = 1000    # Abaixo deste valor = peca presente (lux baixo)
-LIMIAR_LIVRE = 2000       # Acima deste valor = esteira livre (lux alto)
+LIMIAR_BLOQUEIO = 2000    # Acima deste valor = peca presente (lux baixo)
+LIMIAR_LIVRE = 1000       # Abaixo deste valor = esteira livre (lux alto)
 
 # Temporizacao
 TEMPO_MICRO_PARADA_MS = 5000   # Tempo para detectar micro-parada (5 segundos)
@@ -99,13 +99,13 @@ def verificar_deteccao_peca(valor_adc):
 
     if not sensor_bloqueado:
         # Estado atual: LIVRE -> Verifica se houve transicao para BLOQUEADO
-        if valor_adc < LIMIAR_BLOQUEIO:
+        if valor_adc > LIMIAR_BLOQUEIO:
             sensor_bloqueado = True
             tempo_inicio_bloqueio = agora
             micro_parada_alertada = False
     else:
         # Estado atual: BLOQUEADO
-        if valor_adc > LIMIAR_LIVRE:
+        if valor_adc < LIMIAR_LIVRE:
             # Transicao de BLOQUEADO -> LIVRE (borda de subida)
             # A peca passou completamente pelo sensor
             sensor_bloqueado = False
