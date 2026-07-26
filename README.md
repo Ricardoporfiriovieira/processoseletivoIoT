@@ -6,8 +6,8 @@
 
 ### Identificação do Candidato
 
-- **Nome completo:** Ricardo Porfírio
-- **GitHub:** Ricardo Porfírio
+- **Nome completo:** Ricardo Porfírio Vieira
+- **GitHub:** Ricardoporfiriovieira
 - **E-mail:** ricardoporfiriovieira@gmail.com
 
 ---
@@ -148,10 +148,3 @@ Turno resetado com sucesso. Contadores zerados.
 - O intervalo do loop principal foi definido em 50ms para equilibrar responsividade do sensor com consumo de processamento.
 - A utilização de `time.ticks_ms()` em vez de `time.sleep()` garante que nenhuma funcionalidade é bloqueada enquanto aguarda temporizadores.
 - O uso de pull-up interno no botão simplifica o circuito, dispensando resistores externos.
-
-### Melhorias Futuras
-
-- Implementação de display OLED para visualização local da contagem sem depender do terminal serial.
-- Adição de LED indicador de status (verde para operação normal, vermelho para micro-parada).
-- Armazenamento de dados de turno em NVS (Non-Volatile Storage) para persistência após resets.
-- Cálculo e exibição de métricas de produtividade (peças/minuto, tempo médio de ciclo).
